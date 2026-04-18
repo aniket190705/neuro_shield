@@ -16,14 +16,18 @@ DATA_PATH = BASE_DIR / "telemetry_data.csv"
 MODEL_PATH = BASE_DIR / "fatigue_model.pkl"
 FEATURE_COLUMNS = ["keys", "mouse_distance", "tab_switches", "backspace"]
 FEATURE_WEIGHTS = {
-    "backspace": 0.42,
-    "tab_switches": 0.33,
-    "keys": 0.15,
-    "mouse_distance": 0.10,
+    "backspace": 0.50,
+    "tab_switches": 0.38,
+    "keys": 0.07,
+    "mouse_distance": 0.05,
 }
+# Applied after weighted sum×10 so typical stress reaches HIGH (60%+ UI) more often
+FATIGUE_OUTPUT_SCALE = 1.22
+# UI bands on rounded percent (score×10): 0–30 LOW, 31–59 MEDIUM, 60+ HIGH
 RISK_THRESHOLDS = {
-    "low_max": 2.4,
-    "medium_max": 4.5,
+    "low_percent_max": 30,
+    "medium_percent_max": 59,
+    "high_percent_min": 60,
 }
 REFERENCE_STATES = {
     "low": {
@@ -35,15 +39,15 @@ REFERENCE_STATES = {
     },
     "medium": {
         "keys": "varied",
-        "mouse_distance": "roughly 800+ px sustained",
-        "tab_switches": "1 or more",
+        "mouse_distance": "roughly 700+ px with any tab switch",
+        "tab_switches": "1+",
         "backspace": "1+",
     },
     "high": {
         "keys": "often low when combined with stress signals",
-        "mouse_distance": "1400+ combined with other signals",
+        "mouse_distance": "1000+ combined with tabs or corrections",
         "tab_switches": "2+",
-        "backspace": "4+",
+        "backspace": "3+",
     },
 }
 
@@ -67,34 +71,34 @@ def key_fatigue_component(keys):
 
 
 def mouse_fatigue_component(mouse_distance):
-    """Ramps earlier: noticeable movement starts contributing before 1000px."""
-    if mouse_distance < 320:
+    """Ramps from ~180px; stronger mid/high bands."""
+    if mouse_distance < 180:
         return 0.0
-    if mouse_distance < 1100:
-        return scale(mouse_distance, 320, 1100) * 0.52
-    if mouse_distance < 2100:
-        return 0.52 + scale(mouse_distance, 1100, 2100) * 0.28
-    return 0.80 + scale(mouse_distance, 2100, 4200) * 0.20
+    if mouse_distance < 850:
+        return scale(mouse_distance, 180, 850) * 0.62
+    if mouse_distance < 1800:
+        return 0.62 + scale(mouse_distance, 850, 1800) * 0.24
+    return 0.86 + scale(mouse_distance, 1800, 4000) * 0.14
 
 
 def tab_switch_fatigue_component(tab_switches):
     if tab_switches == 0:
         return 0.0
     if tab_switches == 1:
-        return 0.28
+        return 0.44
     if tab_switches == 2:
-        return 0.58
-    return 0.82 + scale(tab_switches, 3, 6) * 0.18
+        return 0.74
+    return 0.90 + scale(tab_switches, 3, 6) * 0.10
 
 
 def backspace_fatigue_component(backspace):
     if backspace == 0:
         return 0.0
     if backspace <= 2:
-        return 0.18 + scale(backspace, 1, 2) * 0.32
+        return 0.28 + scale(backspace, 1, 2) * 0.40
     if backspace <= 5:
-        return 0.52 + scale(backspace, 3, 5) * 0.22
-    return 0.78 + scale(backspace, 6, 12) * 0.22
+        return 0.62 + scale(backspace, 3, 5) * 0.18
+    return 0.84 + scale(backspace, 6, 12) * 0.16
 
 
 def fatigue_score(keys, mouse_distance, tab_switches, backspace):
@@ -116,21 +120,31 @@ def fatigue_score(keys, mouse_distance, tab_switches, backspace):
         "tab_switches": tab_switch_fatigue_component(tab_switches),
         "backspace": backspace_fatigue_component(backspace),
     }
-    weighted_score = sum(
-        components[name] * FEATURE_WEIGHTS[name] for name in FEATURE_COLUMNS
-    ) * 10
+    weighted_score = (
+        sum(components[name] * FEATURE_WEIGHTS[name] for name in FEATURE_COLUMNS)
+        * 10
+        * FATIGUE_OUTPUT_SCALE
+    )
 
+    if keys <= 6 and tab_switches >= 1:
+        weighted_score += 0.55
     if keys <= 5 and tab_switches >= 2:
-        weighted_score += 0.95
+        weighted_score += 1.35
+    if keys <= 5 and backspace >= 3:
+        weighted_score += 0.65
     if keys <= 5 and backspace >= 4:
+        weighted_score += 1.1
+    if tab_switches >= 2 and mouse_distance >= 900:
         weighted_score += 0.85
-    if tab_switches >= 2 and mouse_distance >= 1400:
-        weighted_score += 0.65
-    if backspace >= 4 and tab_switches >= 2:
-        weighted_score += 0.65
+    if backspace >= 3 and tab_switches >= 2:
+        weighted_score += 0.8
+    if tab_switches >= 1 and mouse_distance >= 600:
+        weighted_score += 0.45
     if tab_switches >= 3:
-        weighted_score += 0.35
+        weighted_score += 0.5
     if backspace >= 5:
+        weighted_score += 0.5
+    if tab_switches >= 2 and backspace >= 2:
         weighted_score += 0.35
 
     if keys >= 15 and mouse_distance < 1000 and tab_switches <= 1 and backspace <= 2:
@@ -143,10 +157,10 @@ def fatigue_score(keys, mouse_distance, tab_switches, backspace):
 
 def derive_risk(keys, mouse_distance, tab_switches, backspace):
     score = fatigue_score(keys, mouse_distance, tab_switches, backspace)
-
-    if score >= RISK_THRESHOLDS["medium_max"]:
+    p = round(score * 10)
+    if p >= RISK_THRESHOLDS["high_percent_min"]:
         return 2
-    if score >= RISK_THRESHOLDS["low_max"]:
+    if p > RISK_THRESHOLDS["low_percent_max"]:
         return 1
     return 0
 
@@ -269,6 +283,7 @@ def train_and_save_model(verbose=True):
             "accuracy": best_accuracy,
             "feature_columns": FEATURE_COLUMNS,
             "feature_weights": FEATURE_WEIGHTS,
+            "fatigue_output_scale": FATIGUE_OUTPUT_SCALE,
             "risk_thresholds": RISK_THRESHOLDS,
             "reference_states": REFERENCE_STATES,
             "model": best_model,

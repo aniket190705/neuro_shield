@@ -8,10 +8,8 @@ const app = express();
 const PORT = 5001;
 const MAX_LOGS = 100;
 const EVALUATION_WINDOW_SIZE = 6;
-const HIGH_RISK_THRESHOLD = 4.5;
-const MEDIUM_RISK_THRESHOLD = 2.4;
-const RAPID_RISE_THRESHOLD = 2;
-const IDLE_DECAY_PER_EVALUATION = 1.35;
+/** UI bands on rounded percent (score×10): 0–30 LOW, 31–59 MEDIUM, 60+ HIGH */
+const IDLE_DECAY_PER_EVALUATION = 1.5;
 const logs = [];
 let evaluationBatch = [];
 let overallState = {
@@ -112,15 +110,15 @@ function average(values) {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function riskFromFatigueScore(score, trendDelta = 0) {
-  if (score >= HIGH_RISK_THRESHOLD || trendDelta >= RAPID_RISE_THRESHOLD) {
+/** Matches frontend rollingRisk.js: rounded % = round(score×10). */
+function riskFromFatigueScore(score) {
+  const percent = Math.round(Number(score) * 10);
+  if (percent >= 60) {
     return "HIGH";
   }
-
-  if (score >= MEDIUM_RISK_THRESHOLD) {
+  if (percent > 30) {
     return "MEDIUM";
   }
-
   return "LOW";
 }
 
@@ -159,23 +157,25 @@ function evaluateThirtySecondBatch() {
   const completedBatch = evaluationBatch.slice(0, EVALUATION_WINDOW_SIZE);
   const scores = completedBatch.map((entry) => Number(entry.window_fatigue_score || 0));
   const batchAverage = average(scores);
+  const batchMax = scores.length ? Math.max(...scores) : 0;
+  const effectiveBatch = roundScore(batchAverage * 0.5 + batchMax * 0.5);
   const batchIsIdle = completedBatch.every((entry) => isIdleTelemetry(entry.telemetry));
   const previousScore = Number(overallState.fatigue_score || 0);
-  const trendDelta = overallState.has_prediction ? batchAverage - previousScore : 0;
-  let nextScore = batchAverage;
+  const trendDelta = overallState.has_prediction ? effectiveBatch - previousScore : 0;
+  let nextScore = effectiveBatch;
 
   if (overallState.has_prediction) {
     if (batchIsIdle) {
       nextScore = Math.max(batchAverage, previousScore - IDLE_DECAY_PER_EVALUATION);
-    } else if (batchAverage >= previousScore) {
-      nextScore = previousScore * 0.35 + batchAverage * 0.65;
+    } else if (effectiveBatch >= previousScore) {
+      nextScore = previousScore * 0.2 + effectiveBatch * 0.8;
     } else {
-      nextScore = previousScore * 0.72 + batchAverage * 0.28;
+      nextScore = previousScore * 0.62 + effectiveBatch * 0.38;
     }
   }
 
   nextScore = roundScore(Math.max(0, Math.min(10, nextScore)));
-  const risk = riskFromFatigueScore(nextScore, trendDelta);
+  const risk = riskFromFatigueScore(nextScore);
 
   overallState = {
     has_prediction: true,

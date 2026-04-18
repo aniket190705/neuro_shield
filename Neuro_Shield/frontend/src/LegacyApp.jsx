@@ -22,6 +22,7 @@ import {
   TrendingUp,
   TriangleAlert,
 } from "lucide-react";
+import { rollingPercentFromScore0to10, rollingRiskFromScore0to10 } from "./rollingRisk";
 
 const modeIcons = {
   Developer: Keyboard,
@@ -758,14 +759,14 @@ function App() {
         
         if (data && data.length > 0) {
           const latest = data[data.length - 1];
-          const newScore = Math.round(Number(latest.fatigue_score || 0) * 10);
+          const newScore = rollingPercentFromScore0to10(latest.fatigue_score);
           
           setState((prev) => {
             const trend = [...prev.trend];
             if (trend.length >= 7) trend.shift();
             trend.push(newScore);
 
-            const risk = latest.risk || "LOW";
+            const risk = rollingRiskFromScore0to10(latest.fatigue_score) ?? "LOW";
             let suggestion = "Keep going. Performance is stable.";
             if (risk === "HIGH") suggestion = "Stop and rest immediately.";
             else if (risk === "MEDIUM") suggestion = "Consider a short break soon.";

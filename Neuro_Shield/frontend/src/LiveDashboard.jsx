@@ -13,6 +13,11 @@ import {
   ShieldAlert,
   SquareMousePointer,
 } from "lucide-react";
+import {
+  RISK_BANDS_LEGEND,
+  rollingPercentFromScore0to10,
+  rollingRiskFromScore0to10,
+} from "./rollingRisk";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
@@ -32,20 +37,20 @@ const riskStyles = {
   LOW: {
     color: "#2dd4bf",
     soft: "rgba(45, 212, 191, 0.14)",
-    label: "Normal working pattern",
+    label: "Score 0–30 (rolling %)",
     action: "Keep working. The current behavior is stable.",
   },
   MEDIUM: {
     color: "#fbbf24",
     soft: "rgba(251, 191, 36, 0.14)",
-    label: "Early fatigue drift",
+    label: "Score 31–59 (rolling %)",
     action: "Slow down slightly and consider a short pause soon.",
   },
   HIGH: {
     color: "#fb7185",
     soft: "rgba(251, 113, 133, 0.14)",
-    label: "High fatigue likelihood",
-    action: "Take a break now. The model sees stacked fatigue signals.",
+    label: "Score 60+ (rolling %)",
+    action: "Take a break now. Fatigue index is in the high band.",
   },
   WAITING: {
     color: "#94a3b8",
@@ -75,7 +80,7 @@ const metricDefinitions = [
     label: "Mouse Distance",
     suffix: "px",
     icon: MousePointer2,
-    normal: "0-600 px calm",
+    normal: "0-400 px calm",
     description: "Total cursor movement during the same model window.",
   },
   {
@@ -83,7 +88,7 @@ const metricDefinitions = [
     label: "Tab Switches",
     suffix: "",
     icon: SquareMousePointer,
-    normal: "0-1 / 5s",
+    normal: "0 / 5s for low strain",
     description: "Browser tab changes collected by the extension service worker.",
   },
   {
@@ -91,7 +96,7 @@ const metricDefinitions = [
     label: "Backspace",
     suffix: "",
     icon: AlertTriangle,
-    normal: "0-2 / 5s",
+    normal: "0-1 / 5s",
     description: "Backspace presses, used as a correction/error signal.",
   },
 ];
@@ -99,21 +104,21 @@ const metricDefinitions = [
 const riskRules = [
   {
     risk: "LOW",
-    title: "Low risk",
-    summary: "Normal focused work: steady typing, useful mouse movement, low corrections, and little context switching.",
-    conditions: "Usually keys 12-30, mouse under ~300 px or calm movement, tab switches 0, backspace 0 per 5 seconds.",
+    title: "Low risk (0–30%)",
+    summary: "Rolling fatigue index on the lower third of the 0–100 scale.",
+    conditions: "Same telemetry rules as before; the badge matches the number in the gauge (rounded percent).",
   },
   {
     risk: "MEDIUM",
-    title: "Medium risk",
-    summary: "Some drift from normal behavior. Moderate mouse travel, a few tab switches, or corrections are enough to register.",
-    conditions: "Examples: visible mouse movement 800+ px, 1+ tab switch, 1-2 backspaces, or combined mild elevation on several signals.",
+    title: "Medium risk (31–59%)",
+    summary: "Middle band: elevated strain versus calm baseline, not yet in the top third.",
+    conditions: "Triggered when the rounded rolling score is 31–59 inclusive.",
   },
   {
     risk: "HIGH",
-    title: "High risk",
-    summary: "Stacked fatigue signals: context switching, corrections, and/or high mouse travel push the score up quickly.",
-    conditions: "Triggers with fewer events than before: e.g. 2+ tab switches with movement, 3+ backspaces, or sustained high mouse distance.",
+    title: "High risk (60–100%)",
+    summary: "Top third of the scale: prioritize recovery or a break.",
+    conditions: "Triggered when the rounded rolling score is 60 or higher.",
   },
 ];
 
@@ -144,9 +149,13 @@ function formatTime(value) {
 function getLatestTelemetry(logs, overall) {
   const latest = logs.at(-1);
   const hasOverallPrediction = Boolean(overall?.has_prediction);
-  const overallScorePercent = hasOverallPrediction && Number.isFinite(Number(overall?.fatigue_score))
-    ? Math.max(0, Math.min(100, Math.round(Number(overall.fatigue_score) * 10)))
+  const rollingScore = overall?.fatigue_score;
+  const overallScorePercent = hasOverallPrediction
+    ? rollingPercentFromScore0to10(rollingScore)
     : 0;
+  const derivedRisk = rollingRiskFromScore0to10(rollingScore);
+  const displayRisk =
+    !hasOverallPrediction ? "WAITING" : derivedRisk != null ? derivedRisk : "LOW";
 
   if (!latest) {
     return {
@@ -157,7 +166,7 @@ function getLatestTelemetry(logs, overall) {
         tab_switches: 0,
         backspace: 0,
       },
-      risk: hasOverallPrediction ? overall.risk : "WAITING",
+      risk: displayRisk,
       scorePercent: overallScorePercent,
     };
   }
@@ -170,7 +179,7 @@ function getLatestTelemetry(logs, overall) {
       tab_switches: Number(latest.telemetry?.tab_switches || 0),
       backspace: Number(latest.telemetry?.backspace || 0),
     },
-    risk: hasOverallPrediction ? overall.risk : "WAITING",
+    risk: displayRisk,
     scorePercent: overallScorePercent,
   };
 }
@@ -324,7 +333,7 @@ function Overview({ apiStatus, apiError, logs, latest, latestTimestamp, latestSo
               </p>
               <div className="mt-8 grid gap-4 sm:grid-cols-4">
                 <div className="rounded-3xl border border-white/10 bg-white/6 px-5 py-4">
-                  <p className="text-sm text-slate-400">Rolling Fatigue Score</p>
+                  <p className="text-sm text-slate-400">Rolling fatigue (0–100)</p>
                   <div className="font-display text-4xl font-bold">{hasOverallPrediction ? `${scorePercent}%` : "WAIT"}</div>
                 </div>
                 <div className="rounded-3xl border border-white/10 bg-white/6 px-5 py-4">
@@ -347,10 +356,11 @@ function Overview({ apiStatus, apiError, logs, latest, latestTimestamp, latestSo
             </div>
 
             <div className="flex flex-col items-center justify-center gap-5">
-              <div className="gauge-ring relative flex h-72 w-72 items-center justify-center rounded-full" style={gaugeStyle}>
+                <div className="gauge-ring relative flex h-72 w-72 items-center justify-center rounded-full" style={gaugeStyle}>
                 <div className="relative z-10 text-center">
-                  <p className="text-sm uppercase tracking-[0.35em] text-slate-400">30s Score</p>
+                  <p className="text-sm uppercase tracking-[0.35em] text-slate-400">30s rolling</p>
                   <div className="mt-3 font-display text-6xl font-bold">{hasOverallPrediction ? scorePercent : "--"}</div>
+                  <p className="mt-1 text-xs text-slate-500">{RISK_BANDS_LEGEND}</p>
                   <p className="mt-2 text-sm text-slate-400">Updated: {formatTime(latestTimestamp)}</p>
                 </div>
               </div>
@@ -495,7 +505,7 @@ function LiveDashboard() {
         <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Risk Logic</p>
         <h2 className="mt-2 font-display text-3xl font-semibold text-white">Model Conditions For A Normal Worker</h2>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-400">
-          The Python model predicts every 5 seconds, while the dashboard risk uses the backend's rolling 30-second score from the latest six predictions.
+          The Python model predicts every 5 seconds; the main badge uses the rolling 30-second score from the latest six windows, shown as 0–100% with bands {RISK_BANDS_LEGEND}.
         </p>
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           {riskRules.map((rule) => {
@@ -609,7 +619,7 @@ function LiveDashboard() {
             </div>
             <div className="flex flex-wrap gap-3 text-sm text-slate-300">
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Backend: {API_BASE || "same-origin"}</span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Score: rolling 30s</span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">{RISK_BANDS_LEGEND}</span>
             </div>
           </div>
         </footer>
