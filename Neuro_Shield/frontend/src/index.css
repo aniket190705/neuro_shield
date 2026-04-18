@@ -1,0 +1,124 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --bg: #06111f;
+  --bg-soft: rgba(11, 27, 48, 0.74);
+  --card: rgba(9, 18, 34, 0.88);
+  --card-strong: rgba(9, 18, 34, 0.96);
+  --line: rgba(151, 176, 212, 0.16);
+  --text: #f4f7fb;
+  --muted: #8ea3bd;
+  --safe: #2dd4bf;
+  --warn: #fbbf24;
+  --critical: #fb7185;
+  --accent: #38bdf8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.17), transparent 24%),
+    radial-gradient(circle at top right, rgba(251, 113, 133, 0.14), transparent 22%),
+    linear-gradient(180deg, #07101d 0%, #030814 100%);
+  color: var(--text);
+}
+
+.font-display {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.glass-card {
+  background: linear-gradient(180deg, rgba(13, 26, 47, 0.92), rgba(8, 17, 31, 0.9));
+  border: 1px solid var(--line);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.gauge-ring::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(6, 17, 31, 0.96), rgba(8, 17, 31, 0.82));
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.metric-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-shine::after {
+  content: "";
+  position: absolute;
+  inset: -120% auto auto -30%;
+  width: 45%;
+  height: 280%;
+  transform: rotate(24deg);
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+.pulse-critical {
+  animation: critical-pulse 1.8s ease-in-out infinite;
+}
+
+.float-in {
+  animation: float-in 0.55s ease-out both;
+}
+
+.soft-spin {
+  transition: background 0.8s ease, transform 0.8s ease;
+}
+
+.trend-line {
+  transition:
+    d 0.7s ease,
+    stroke 0.4s ease;
+}
+
+.trend-area {
+  transition: d 0.7s ease;
+}
+
+@keyframes critical-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 113, 133, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(251, 113, 133, 0);
+  }
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
