@@ -29,7 +29,9 @@ const EMPTY_TREND = [0, 0, 0, 0, 0, 0, 0, 0];
 
 function playBeep() {
   try {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const audioContext = new (
+      window.AudioContext || window.webkitAudioContext
+    )();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 
@@ -37,16 +39,19 @@ function playBeep() {
     gainNode.connect(audioContext.destination);
 
     oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Frequency in Hz
-    oscillator.type = 'sine'; // Waveform type
+    oscillator.type = "sine"; // Waveform type
 
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); // Volume
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + 4.5); // Stay constant for 4.5 seconds
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 5); // Fade out in last 0.5 seconds
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.01,
+      audioContext.currentTime + 5,
+    ); // Fade out in last 0.5 seconds
 
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 5); // Duration 5 seconds
   } catch (error) {
-    console.warn('Beep not supported:', error);
+    console.warn("Beep not supported:", error);
   }
 }
 
@@ -80,13 +85,15 @@ const riskStyles = {
     color: "#94a3b8",
     soft: "rgba(148, 163, 184, 0.12)",
     label: "Collecting 30-second batch",
-    action: "Waiting for six 5-second windows before showing the overall prediction.",
+    action:
+      "Waiting for six 5-second windows before showing the overall prediction.",
   },
   UNKNOWN: {
     color: "#94a3b8",
     soft: "rgba(148, 163, 184, 0.12)",
     label: "Waiting for data",
-    action: "Open a normal website with the extension enabled to start telemetry.",
+    action:
+      "Open a normal website with the extension enabled to start telemetry.",
   },
 };
 
@@ -113,7 +120,8 @@ const metricDefinitions = [
     suffix: "",
     icon: SquareMousePointer,
     normal: "0 / 5s for low strain",
-    description: "Browser tab changes collected by the extension service worker.",
+    description:
+      "Browser tab changes collected by the extension service worker.",
   },
   {
     key: "backspace",
@@ -130,12 +138,14 @@ const riskRules = [
     risk: "LOW",
     title: "Low risk (0–30%)",
     summary: "Rolling fatigue index on the lower third of the 0–100 scale.",
-    conditions: "Same telemetry rules as before; the badge matches the number in the gauge (rounded percent).",
+    conditions:
+      "Same telemetry rules as before; the badge matches the number in the gauge (rounded percent).",
   },
   {
     risk: "MEDIUM",
     title: "Medium risk (31–59%)",
-    summary: "Middle band: elevated strain versus calm baseline, not yet in the top third.",
+    summary:
+      "Middle band: elevated strain versus calm baseline, not yet in the top third.",
     conditions: "Triggered when the rounded rolling score is 31–59 inclusive.",
   },
   {
@@ -147,9 +157,15 @@ const riskRules = [
 ];
 
 function formatClock(seconds) {
-  const hours = Math.floor(seconds / 3600).toString().padStart(2, "0");
-  const minutes = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
-  const secs = Math.floor(seconds % 60).toString().padStart(2, "0");
+  const hours = Math.floor(seconds / 3600)
+    .toString()
+    .padStart(2, "0");
+  const minutes = Math.floor((seconds % 3600) / 60)
+    .toString()
+    .padStart(2, "0");
+  const secs = Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, "0");
   return `${hours}:${minutes}:${secs}`;
 }
 
@@ -178,8 +194,11 @@ function getLatestTelemetry(logs, overall) {
     ? rollingPercentFromScore0to10(rollingScore)
     : 0;
   const derivedRisk = rollingRiskFromScore0to10(rollingScore);
-  const displayRisk =
-    !hasOverallPrediction ? "WAITING" : derivedRisk != null ? derivedRisk : "LOW";
+  const displayRisk = !hasOverallPrediction
+    ? "WAITING"
+    : derivedRisk != null
+      ? derivedRisk
+      : "LOW";
 
   if (!latest) {
     return {
@@ -213,14 +232,26 @@ function buildTrend(logs) {
   const scores = logs
     .filter((entry) => {
       const evaluationId = entry.overall?.evaluations_completed;
-      if (!entry.overall?.has_prediction || !evaluationId || seenEvaluations.has(evaluationId)) {
+      if (
+        !entry.overall?.has_prediction ||
+        !evaluationId ||
+        seenEvaluations.has(evaluationId)
+      ) {
         return false;
       }
       seenEvaluations.add(evaluationId);
       return true;
     })
     .slice(-8)
-    .map((entry) => Math.max(0, Math.min(100, Math.round(Number(entry.overall?.fatigue_score || 0) * 10))));
+    .map((entry) =>
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(Number(entry.overall?.fatigue_score || 0) * 10),
+        ),
+      ),
+    );
   return [...EMPTY_TREND.slice(scores.length), ...scores];
 }
 
@@ -258,11 +289,19 @@ function StatCard({ metric, value, risk }) {
       </div>
       <p className="text-sm text-slate-400">{metric.label}</p>
       <div className="mt-2 flex items-end gap-2">
-        <span className="font-display text-4xl font-bold text-white">{Math.round(value)}</span>
-        {metric.suffix ? <span className="pb-1 text-sm text-slate-400">{metric.suffix}</span> : null}
+        <span className="font-display text-4xl font-bold text-white">
+          {Math.round(value)}
+        </span>
+        {metric.suffix ? (
+          <span className="pb-1 text-sm text-slate-400">{metric.suffix}</span>
+        ) : null}
       </div>
-      <p className="mt-3 text-sm leading-6 text-slate-400">{metric.description}</p>
-      <p className="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">Normal: {metric.normal}</p>
+      <p className="mt-3 text-sm leading-6 text-slate-400">
+        {metric.description}
+      </p>
+      <p className="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">
+        Normal: {metric.normal}
+      </p>
     </article>
   );
 }
@@ -274,10 +313,16 @@ function TrendPanel({ trend, risk }) {
     <div className="glass-card rounded-[34px] p-6">
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Live Trend</p>
-          <h2 className="mt-2 font-display text-3xl font-semibold text-white">Rolling 30-Second Score</h2>
+          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
+            Live Trend
+          </p>
+          <h2 className="mt-2 font-display text-3xl font-semibold text-white">
+            Rolling 30-Second Score
+          </h2>
         </div>
-        <span className="rounded-full border border-white/10 px-3 py-1.5 text-sm text-slate-300">6 windows x 5s</span>
+        <span className="rounded-full border border-white/10 px-3 py-1.5 text-sm text-slate-300">
+          6 windows x 5s
+        </span>
       </div>
       <div className="h-72 rounded-[28px] border border-white/8 bg-[#07111f]/80 p-4">
         <svg viewBox="0 0 760 240" className="h-full w-full overflow-visible">
@@ -285,18 +330,39 @@ function TrendPanel({ trend, risk }) {
             const y = 24 + ((100 - tick) / 100) * 192;
             return (
               <g key={tick}>
-                <line x1="24" y1={y} x2="736" y2={y} stroke="rgba(148, 163, 184, 0.12)" strokeDasharray="5 6" />
+                <line
+                  x1="24"
+                  y1={y}
+                  x2="736"
+                  y2={y}
+                  stroke="rgba(148, 163, 184, 0.12)"
+                  strokeDasharray="5 6"
+                />
                 <text x="0" y={y + 4} fill="#8ea3bd" fontSize="11">
                   {tick}
                 </text>
               </g>
             );
           })}
-          <path d={path} fill="none" stroke={risk.color} strokeWidth="4" strokeLinecap="round" />
+          <path
+            d={path}
+            fill="none"
+            stroke={risk.color}
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
           {trend.map((value, index) => {
             const x = 24 + (index / (trend.length - 1 || 1)) * 712;
             const y = 24 + ((100 - value) / 100) * 192;
-            return <circle key={`${value}-${index}`} cx={x} cy={y} r="4.5" fill={risk.color} />;
+            return (
+              <circle
+                key={`${value}-${index}`}
+                cx={x}
+                cy={y}
+                r="4.5"
+                fill={risk.color}
+              />
+            );
           })}
         </svg>
       </div>
@@ -304,7 +370,19 @@ function TrendPanel({ trend, risk }) {
   );
 }
 
-function Overview({ apiStatus, apiError, logs, latest, latestTimestamp, latestSource, overall, risk, riskLevel, scorePercent, telemetry }) {
+function Overview({
+  apiStatus,
+  apiError,
+  logs,
+  latest,
+  latestTimestamp,
+  latestSource,
+  overall,
+  risk,
+  riskLevel,
+  scorePercent,
+  telemetry,
+}) {
   const hasOverallPrediction = Boolean(overall?.has_prediction);
   const windowsCollected = Number(overall?.windows_collected || 0);
   const windowsRequired = Number(overall?.windows_required || 6);
@@ -315,7 +393,9 @@ function Overview({ apiStatus, apiError, logs, latest, latestTimestamp, latestSo
     telemetry.tab_switches === 0 &&
     telemetry.backspace === 0;
   const latestWindowRisk = latest?.window_risk || "WAITING";
-  const latestWindowScore = Number.isFinite(Number(latest?.window_fatigue_score))
+  const latestWindowScore = Number.isFinite(
+    Number(latest?.window_fatigue_score),
+  )
     ? Math.round(Number(latest.window_fatigue_score) * 10)
     : 0;
   const gaugeStyle = {
@@ -329,8 +409,12 @@ function Overview({ apiStatus, apiError, logs, latest, latestTimestamp, latestSo
           <div className="flex items-start gap-3">
             <ShieldAlert className="mt-1 text-rose-300" />
             <div>
-              <p className="font-display text-xl font-semibold text-rose-100">Backend is not reachable</p>
-              <p className="mt-1 text-sm text-rose-100/80">{apiError || "Start the Express server to receive predictions."}</p>
+              <p className="font-display text-xl font-semibold text-rose-100">
+                Backend is not reachable
+              </p>
+              <p className="mt-1 text-sm text-rose-100/80">
+                {apiError || "Start the Express server to receive predictions."}
+              </p>
             </div>
           </div>
         </section>
@@ -338,81 +422,120 @@ function Overview({ apiStatus, apiError, logs, latest, latestTimestamp, latestSo
 
       <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
         <div className="glass-card hero-grid overflow-hidden rounded-[34px] p-6 lg:p-8">
-          <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-            <div>
-              <p className="mb-3 text-sm uppercase tracking-[0.35em] text-sky-300/75">Integrated ML Dashboard</p>
-              <div className="mb-5 flex flex-wrap items-center gap-3">
-                <span className="rounded-full px-4 py-1.5 text-sm font-semibold" style={{ backgroundColor: risk.soft, color: risk.color }}>
+          <div className="flex flex-col gap-8">
+            <div className="text-center">
+              <p className="mb-3 text-sm uppercase tracking-[0.35em] text-sky-300/75">
+                Integrated ML Dashboard
+              </p>
+              <div className="mb-5 flex flex-wrap items-center gap-3 justify-center">
+                <span
+                  className="rounded-full px-4 py-1.5 text-sm font-semibold"
+                  style={{ backgroundColor: risk.soft, color: risk.color }}
+                >
                   {riskLevel} RISK
                 </span>
                 <span className="rounded-full border border-white/10 px-4 py-1.5 text-sm text-slate-300">
                   {risk.label}
                 </span>
               </div>
-              <h2 className="max-w-xl font-display text-4xl font-bold leading-tight lg:text-5xl">
+              <h2 className="max-w-xl font-display text-4xl font-bold leading-tight lg:text-5xl mx-auto">
                 Extension telemetry, Python model, and dashboard in one loop.
               </h2>
-              <p className="mt-4 max-w-xl text-base leading-7 text-slate-300">
-                Every 5 seconds the extension sends one model window. The backend combines the latest six windows into a rolling 30-second fatigue score, so risk does not instantly reset when one idle window arrives.
+              <p className="mt-4 max-w-xl text-base leading-7 text-slate-300 mx-auto">
+                Every 5 seconds the extension sends one model window. The
+                backend combines the latest six windows into a rolling 30-second
+                fatigue score, so risk does not instantly reset when one idle
+                window arrives.
               </p>
-              <div className="mt-8 grid gap-4 sm:grid-cols-4">
-                <div className="rounded-3xl border border-white/10 bg-white/6 px-5 py-4">
-                  <p className="text-sm text-slate-400">Rolling fatigue (0–100)</p>
-                  <div className="font-display text-4xl font-bold">{hasOverallPrediction ? `${scorePercent}%` : "WAIT"}</div>
+            </div>
+            <div className="flex justify-center">
+              <div className="flex flex-col items-center justify-center gap-5">
+                <div
+                  className="gauge-ring relative flex h-72 w-72 items-center justify-center rounded-full"
+                  style={gaugeStyle}
+                >
+                  <div className="relative z-10 text-center">
+                    <p className="text-sm uppercase tracking-[0.35em] text-slate-400">
+                      30s rolling
+                    </p>
+                    <div className="mt-3 font-display text-6xl font-bold">
+                      {hasOverallPrediction ? scorePercent : "--"}
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {RISK_BANDS_LEGEND}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Updated: {formatTime(latestTimestamp)}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-3xl border border-white/10 bg-white/6 px-5 py-4">
-                  <p className="text-sm text-slate-400">Latest 5s Model</p>
-                  <div className="font-display text-3xl font-bold">{latestWindowRisk}</div>
-                  <p className="mt-1 text-xs text-slate-500">{latestWindowScore}% window score</p>
-                </div>
-                <div className="rounded-3xl border border-white/10 bg-white/6 px-5 py-4">
-                  <p className="text-sm text-slate-400">30s Windows Used</p>
-                  <div className="font-display text-4xl font-bold">{windowsCollected}/{windowsRequired}</div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {hasOverallPrediction ? `${windowsRemaining} windows until next update` : `${windowsRemaining} windows until first prediction`}
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-white/10 bg-white/6 px-5 py-4">
-                  <p className="text-sm text-slate-400">Model Source</p>
-                  <div className="font-display text-3xl font-bold capitalize">{latestSource}</div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-300">
+                  {!hasOverallPrediction
+                    ? `Waiting for prediction: ${windowsCollected}/${windowsRequired} windows collected.`
+                    : zeroWindow
+                      ? "Latest 5s window is idle. The 30s score will update only after the full batch completes."
+                      : risk.action}
                 </div>
               </div>
             </div>
-
-            <div className="flex flex-col items-center justify-center gap-5">
-                <div className="gauge-ring relative flex h-72 w-72 items-center justify-center rounded-full" style={gaugeStyle}>
-                <div className="relative z-10 text-center">
-                  <p className="text-sm uppercase tracking-[0.35em] text-slate-400">30s rolling</p>
-                  <div className="mt-3 font-display text-6xl font-bold">{hasOverallPrediction ? scorePercent : "--"}</div>
-                  <p className="mt-1 text-xs text-slate-500">{RISK_BANDS_LEGEND}</p>
-                  <p className="mt-2 text-sm text-slate-400">Updated: {formatTime(latestTimestamp)}</p>
+            <div className="grid gap-4 sm:grid-cols-3 text-center items-center">
+              <div className="rounded-3xl border border-white/10 bg-white/6 px-5 py-4">
+                <p className="text-sm text-slate-400">Rolling fatigue</p>
+                <div className="font-display text-4xl font-bold">
+                  {hasOverallPrediction ? `${scorePercent}%` : "WAIT"}
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm text-slate-300">
-                {!hasOverallPrediction
-                  ? `Waiting for prediction: ${windowsCollected}/${windowsRequired} windows collected.`
-                  : zeroWindow
-                  ? "Latest 5s window is idle. The 30s score will update only after the full batch completes."
-                  : risk.action}
+              <div className="rounded-3xl border border-white/10 bg-white/6 px-5 py-4">
+                <p className="text-sm text-slate-400">Latest 5s Model</p>
+                <div className="font-display text-3xl font-bold">
+                  {latestWindowRisk}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {latestWindowScore}% window score
+                </p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/6 px-5 py-4">
+                <p className="text-sm text-slate-400">30s Windows Used</p>
+                <div className="font-display text-4xl font-bold">
+                  {windowsCollected}/{windowsRequired}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {hasOverallPrediction
+                    ? `${windowsRemaining} windows until next update`
+                    : `${windowsRemaining} windows until first prediction`}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="glass-card rounded-[34px] p-6">
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Current Window</p>
-          <h2 className="mt-2 font-display text-3xl font-semibold text-white">Latest 5s Inputs</h2>
+          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
+            Current Window
+          </p>
+          <h2 className="mt-2 font-display text-3xl font-semibold text-white">
+            Latest 5s Inputs
+          </h2>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            These raw values update every 5 seconds. The main risk badge and gauge are smoothed through the rolling 30-second score.
+            These raw values update every 5 seconds. The main risk badge and
+            gauge are smoothed through the rolling 30-second score.
           </p>
           <div className="mt-6 grid gap-3">
             {metricDefinitions.map((metric) => (
-              <div key={metric.key} className="flex items-center justify-between rounded-3xl border border-white/8 bg-white/4 px-4 py-4">
+              <div
+                key={metric.key}
+                className="flex items-center justify-between rounded-3xl border border-white/8 bg-white/4 px-4 py-4"
+              >
                 <div>
                   <p className="font-medium text-white">{metric.label}</p>
-                  <p className="text-sm text-slate-400">Normal: {metric.normal}</p>
+                  <p className="text-sm text-slate-400">
+                    Normal: {metric.normal}
+                  </p>
                 </div>
-                <p className="font-display text-3xl font-bold" style={{ color: risk.color }}>
+                <p
+                  className="font-display text-3xl font-bold"
+                  style={{ color: risk.color }}
+                >
                   {Math.round(telemetry[metric.key])}
                 </p>
               </div>
@@ -423,7 +546,12 @@ function Overview({ apiStatus, apiError, logs, latest, latestTimestamp, latestSo
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metricDefinitions.map((metric) => (
-          <StatCard key={metric.key} metric={metric} value={telemetry[metric.key]} risk={risk} />
+          <StatCard
+            key={metric.key}
+            metric={metric}
+            value={telemetry[metric.key]}
+            risk={risk}
+          />
         ))}
       </section>
     </div>
@@ -453,7 +581,9 @@ function LiveDashboard() {
 
     const fetchTelemetry = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/telemetry`, { cache: "no-store" });
+        const response = await fetch(`${API_BASE}/api/telemetry`, {
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           throw new Error(`Backend responded with HTTP ${response.status}`);
@@ -473,7 +603,8 @@ function LiveDashboard() {
           const currentOverall = payload.overall || null;
           const currentRisk = getLatestTelemetry(nextLogs, currentOverall).risk;
           const currentIdleInactive = Boolean(currentOverall?.idle_inactive);
-          const currentBeepCondition = currentRisk === "HIGH" && currentIdleInactive;
+          const currentBeepCondition =
+            currentRisk === "HIGH" && currentIdleInactive;
 
           if (currentBeepCondition && !previousBeepCondition.current) {
             playBeep();
@@ -497,7 +628,12 @@ function LiveDashboard() {
     };
   }, []);
 
-  const { latest, telemetry, risk: riskLevel, scorePercent } = getLatestTelemetry(logs, overall);
+  const {
+    latest,
+    telemetry,
+    risk: riskLevel,
+    scorePercent,
+  } = getLatestTelemetry(logs, overall);
   const idleInactive = Boolean(overall?.idle_inactive);
   const risk = riskStyles[riskLevel] || riskStyles.UNKNOWN;
   const trend = useMemo(() => buildTrend(logs), [logs]);
@@ -523,14 +659,25 @@ function LiveDashboard() {
     metrics: (
       <div className="space-y-6">
         <section className="glass-card rounded-[34px] p-6">
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Live Metrics</p>
-          <h2 className="mt-2 font-display text-3xl font-semibold text-white">Latest 5-Second Telemetry</h2>
+          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
+            Live Metrics
+          </p>
+          <h2 className="mt-2 font-display text-3xl font-semibold text-white">
+            Latest 5-Second Telemetry
+          </h2>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-400">
-            These values are not simulated. They come from the extension, pass through the Express API, and are echoed back with each model prediction.
+            These values are not simulated. They come from the extension, pass
+            through the Express API, and are echoed back with each model
+            prediction.
           </p>
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {metricDefinitions.map((metric) => (
-              <StatCard key={metric.key} metric={metric} value={telemetry[metric.key]} risk={risk} />
+              <StatCard
+                key={metric.key}
+                metric={metric}
+                value={telemetry[metric.key]}
+                risk={risk}
+              />
             ))}
           </div>
         </section>
@@ -539,22 +686,40 @@ function LiveDashboard() {
     ),
     logic: (
       <section className="glass-card rounded-[34px] p-6">
-        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Risk Logic</p>
-        <h2 className="mt-2 font-display text-3xl font-semibold text-white">Model Conditions For A Normal Worker</h2>
+        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
+          Risk Logic
+        </p>
+        <h2 className="mt-2 font-display text-3xl font-semibold text-white">
+          Model Conditions For A Normal Worker
+        </h2>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-400">
-          The Python model predicts every 5 seconds; the main badge uses the rolling 30-second score from the latest six windows, shown as 0–100% with bands {RISK_BANDS_LEGEND}.
+          The Python model predicts every 5 seconds; the main badge uses the
+          rolling 30-second score from the latest six windows, shown as 0–100%
+          with bands {RISK_BANDS_LEGEND}.
         </p>
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           {riskRules.map((rule) => {
             const tone = riskStyles[rule.risk];
             return (
-              <article key={rule.risk} className="rounded-3xl border border-white/8 bg-white/4 p-5">
-                <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: tone.soft, color: tone.color }}>
+              <article
+                key={rule.risk}
+                className="rounded-3xl border border-white/8 bg-white/4 p-5"
+              >
+                <span
+                  className="rounded-full px-3 py-1 text-xs font-semibold"
+                  style={{ backgroundColor: tone.soft, color: tone.color }}
+                >
                   {rule.risk}
                 </span>
-                <h3 className="mt-4 font-display text-2xl font-semibold text-white">{rule.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-400">{rule.summary}</p>
-                <p className="mt-4 rounded-2xl border border-white/8 bg-white/5 p-4 text-sm leading-6 text-slate-300">{rule.conditions}</p>
+                <h3 className="mt-4 font-display text-2xl font-semibold text-white">
+                  {rule.title}
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-slate-400">
+                  {rule.summary}
+                </p>
+                <p className="mt-4 rounded-2xl border border-white/8 bg-white/5 p-4 text-sm leading-6 text-slate-300">
+                  {rule.conditions}
+                </p>
               </article>
             );
           })}
@@ -563,17 +728,27 @@ function LiveDashboard() {
     ),
     recovery: (
       <section className="glass-card rounded-[34px] p-6">
-        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Recovery</p>
-        <h2 className="mt-2 font-display text-3xl font-semibold text-white">Recommended Action</h2>
+        <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
+          Recovery
+        </p>
+        <h2 className="mt-2 font-display text-3xl font-semibold text-white">
+          Recommended Action
+        </h2>
         <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: risk.soft, color: risk.color }}>
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: risk.soft, color: risk.color }}
+            >
               {riskLevel === "LOW" ? <CheckCircle2 /> : <ShieldAlert />}
             </div>
             <div>
-              <p className="font-display text-2xl font-semibold text-white">{risk.action}</p>
+              <p className="font-display text-2xl font-semibold text-white">
+                {risk.action}
+              </p>
               <p className="mt-2 text-sm leading-7 text-slate-400">
-                The recommendation updates automatically from the rolling 30-second fatigue score.
+                The recommendation updates automatically from the rolling
+                30-second fatigue score.
               </p>
             </div>
           </div>
@@ -587,21 +762,36 @@ function LiveDashboard() {
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <nav className="glass-card float-in flex flex-col gap-4 rounded-[28px] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">Human Fatigue & Error Predictor</p>
-            <h1 className="font-display text-3xl font-bold tracking-tight">NeuroShield</h1>
+            <p className="text-xs uppercase tracking-[0.35em] text-sky-300/80">
+              Human Fatigue & Error Predictor
+            </p>
+            <h1 className="font-display text-3xl font-bold tracking-tight">
+              NeuroShield
+            </h1>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Session Timer</p>
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
+                Session Timer
+              </p>
               <div className="mt-1 flex items-center gap-2 font-display text-xl font-semibold">
                 <Clock3 size={18} className="text-sky-300" />
                 {formatClock(sessionSeconds)}
               </div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.25em] text-slate-400">API Status</p>
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
+                API Status
+              </p>
               <div className="mt-1 flex items-center gap-2 font-display text-xl font-semibold capitalize">
-                <Gauge size={18} className={apiStatus === "online" ? "text-emerald-300" : "text-amber-300"} />
+                <Gauge
+                  size={18}
+                  className={
+                    apiStatus === "online"
+                      ? "text-emerald-300"
+                      : "text-amber-300"
+                  }
+                />
                 {apiStatus}
               </div>
             </div>
@@ -612,11 +802,19 @@ function LiveDashboard() {
           <section className="glass-card float-in rounded-[28px] border border-amber-400/30 bg-amber-500/10 px-5 py-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
-                <Moon className="mt-0.5 shrink-0 text-amber-200" size={22} aria-hidden />
+                <Moon
+                  className="mt-0.5 shrink-0 text-amber-200"
+                  size={22}
+                  aria-hidden
+                />
                 <div>
-                  <p className="font-display text-lg font-semibold text-amber-100">User inactive (idle 1+ minute)</p>
+                  <p className="font-display text-lg font-semibold text-amber-100">
+                    User inactive (idle 1+ minute)
+                  </p>
                   <p className="mt-1 text-sm leading-6 text-amber-100/85">
-                    No keyboard or mouse activity for 60 seconds straight. The overall fatigue index is set to 100% until you interact again.
+                    No keyboard or mouse activity for 60 seconds straight. The
+                    overall fatigue index is set to 100% until you interact
+                    again.
                   </p>
                 </div>
               </div>
@@ -629,7 +827,9 @@ function LiveDashboard() {
 
         <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="glass-card float-in rounded-[34px] p-5">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Pages</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">
+              Pages
+            </p>
             <div className="mt-4 space-y-3">
               {pages.map((page) => {
                 const Icon = page.icon;
@@ -645,7 +845,9 @@ function LiveDashboard() {
                         : "border-white/8 bg-white/4 hover:border-white/15 hover:bg-white/7"
                     }`}
                   >
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${active ? "bg-sky-400/20 text-sky-300" : "bg-white/6 text-slate-300"}`}>
+                    <div
+                      className={`flex h-11 w-11 items-center justify-center rounded-2xl ${active ? "bg-sky-400/20 text-sky-300" : "bg-white/6 text-slate-300"}`}
+                    >
                       <Icon size={20} />
                     </div>
                     <p className="font-medium text-white">{page.label}</p>
@@ -655,7 +857,9 @@ function LiveDashboard() {
             </div>
 
             <div className="mt-6 rounded-3xl border border-white/8 bg-white/4 p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Pipeline</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                Pipeline
+              </p>
               <p className="mt-2 text-sm leading-6 text-slate-300">
                 Extension to Express API to Python model to React dashboard
               </p>
@@ -668,14 +872,21 @@ function LiveDashboard() {
         <footer className="glass-card float-in rounded-[28px] px-5 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="font-display text-xl font-semibold text-white">NeuroShield Integrated Demo</p>
+              <p className="font-display text-xl font-semibold text-white">
+                NeuroShield Integrated Demo
+              </p>
               <p className="text-sm text-slate-400">
-                Live frontend connected to Node.js, Python ML, and Chrome extension telemetry.
+                Live frontend connected to Node.js, Python ML, and Chrome
+                extension telemetry.
               </p>
             </div>
             <div className="flex flex-wrap gap-3 text-sm text-slate-300">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">Backend: {API_BASE || "same-origin"}</span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">{RISK_BANDS_LEGEND}</span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                Backend: {API_BASE || "same-origin"}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                {RISK_BANDS_LEGEND}
+              </span>
             </div>
           </div>
         </footer>
