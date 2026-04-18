@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -26,6 +26,29 @@ const API_BASE =
 
 const POLL_INTERVAL_MS = 5000;
 const EMPTY_TREND = [0, 0, 0, 0, 0, 0, 0, 0];
+
+function playBeep() {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Frequency in Hz
+    oscillator.type = 'sine'; // Waveform type
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); // Volume
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + 4.5); // Stay constant for 4.5 seconds
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 5); // Fade out in last 0.5 seconds
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 5); // Duration 5 seconds
+  } catch (error) {
+    console.warn('Beep not supported:', error);
+  }
+}
 
 const pages = [
   { id: "overview", label: "Overview", icon: Home },
@@ -415,6 +438,7 @@ function LiveDashboard() {
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [lastFetchedAt, setLastFetchedAt] = useState(null);
   const [overall, setOverall] = useState(null);
+  const previousBeepCondition = useRef(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -444,6 +468,17 @@ function LiveDashboard() {
           setApiStatus("online");
           setApiError("");
           setLastFetchedAt(new Date().toISOString());
+
+          // Check for beep condition
+          const currentOverall = payload.overall || null;
+          const currentRisk = getLatestTelemetry(nextLogs, currentOverall).risk;
+          const currentIdleInactive = Boolean(currentOverall?.idle_inactive);
+          const currentBeepCondition = currentRisk === "HIGH" && currentIdleInactive;
+
+          if (currentBeepCondition && !previousBeepCondition.current) {
+            playBeep();
+          }
+          previousBeepCondition.current = currentBeepCondition;
         }
       } catch (error) {
         if (!cancelled) {
