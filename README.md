@@ -1,4 +1,3 @@
-# neuro_shield
 # 🧠 NeuroShield: Real-Time Human Error & Fatigue Predictor
 
 > **The problem:** In critical industries, fatigue goes undetected until a failure occurs.
