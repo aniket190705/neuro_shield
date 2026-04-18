@@ -20,8 +20,7 @@ Since real-world fatigue telemetry is highly restricted, we engineered a custom 
 ## 🛠️ Tech Stack
 * **Frontend:** Vanilla JavaScript (Chrome Extension API)
 * **Backend:** Node.js, Express.js
-* **Database:** PostgreSQL
-* **Machine Learning:** Python 3, Pandas, Scikit-Learn, NumPy
+* **Machine Learning:** Python 3, Pandas, Scikit-Learn, NumPy, RandomForestClassifier
 
 ## 🏃‍♂️ How to Run Locally
 ## 🛠️ Setup Instructions
