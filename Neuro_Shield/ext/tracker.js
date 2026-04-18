@@ -70,6 +70,11 @@
 
   setInterval(() => {
     if (!isPageActive()) {
+      chrome.runtime.sendMessage({ type: "IDLE_HEARTBEAT" }, () => {
+        if (chrome.runtime.lastError) {
+          console.error("Idle heartbeat failed:", chrome.runtime.lastError.message);
+        }
+      });
       return;
     }
 

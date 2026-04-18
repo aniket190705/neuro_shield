@@ -9,6 +9,7 @@ import {
   HeartPulse,
   Home,
   Keyboard,
+  Moon,
   MousePointer2,
   ShieldAlert,
   SquareMousePointer,
@@ -462,6 +463,7 @@ function LiveDashboard() {
   }, []);
 
   const { latest, telemetry, risk: riskLevel, scorePercent } = getLatestTelemetry(logs, overall);
+  const idleInactive = Boolean(overall?.idle_inactive);
   const risk = riskStyles[riskLevel] || riskStyles.UNKNOWN;
   const trend = useMemo(() => buildTrend(logs), [logs]);
   const latestSource = latest?.source || "waiting";
@@ -570,6 +572,25 @@ function LiveDashboard() {
             </div>
           </div>
         </nav>
+
+        {idleInactive ? (
+          <section className="glass-card float-in rounded-[28px] border border-amber-400/30 bg-amber-500/10 px-5 py-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Moon className="mt-0.5 shrink-0 text-amber-200" size={22} aria-hidden />
+                <div>
+                  <p className="font-display text-lg font-semibold text-amber-100">User inactive (idle 1+ minute)</p>
+                  <p className="mt-1 text-sm leading-6 text-amber-100/85">
+                    No keyboard or mouse activity for 60 seconds straight. The overall fatigue index is set to 100% until you interact again.
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 rounded-full border border-amber-300/40 bg-amber-400/15 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-amber-100">
+                Idle / AFK
+              </span>
+            </div>
+          </section>
+        ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="glass-card float-in rounded-[34px] p-5">

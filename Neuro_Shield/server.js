@@ -10,8 +10,11 @@ const MAX_LOGS = 100;
 const EVALUATION_WINDOW_SIZE = 6;
 /** UI bands on rounded percent (score×10): 0–30 LOW, 31–59 MEDIUM, 60+ HIGH */
 const IDLE_DECAY_PER_EVALUATION = 1.5;
+/** 12 × 5s windows = 60s of consecutive idle telemetry → overall score forced to 100% */
+const IDLE_MINUTE_WINDOWS = 12;
 const logs = [];
 let evaluationBatch = [];
+let consecutiveIdleWindows = 0;
 let overallState = {
   has_prediction: false,
   status: "collecting",
@@ -25,6 +28,7 @@ let overallState = {
   evaluations_completed: 0,
   batch_average: 0,
   updated_at: null,
+  idle_inactive: false,
 };
 const FRONTEND_DIST = path.join(__dirname, "frontend", "dist");
 
@@ -124,6 +128,7 @@ function riskFromFatigueScore(score) {
 
 function resetRollingState() {
   evaluationBatch = [];
+  consecutiveIdleWindows = 0;
   overallState = {
     has_prediction: false,
     status: "collecting",
@@ -137,19 +142,28 @@ function resetRollingState() {
     evaluations_completed: 0,
     batch_average: 0,
     updated_at: null,
+    idle_inactive: false,
   };
 }
 
 function getOverallCollectionState(status) {
-  const nextStatus =
-    status ||
-    (overallState.has_prediction ? "collecting_next" : "collecting");
+  let nextStatus = status;
+  if (!nextStatus) {
+    if (overallState.idle_inactive) {
+      nextStatus = "idle_inactive";
+    } else if (overallState.has_prediction) {
+      nextStatus = "collecting_next";
+    } else {
+      nextStatus = "collecting";
+    }
+  }
 
   return {
     ...overallState,
     status: nextStatus,
     windows_collected: evaluationBatch.length,
     windows_required: EVALUATION_WINDOW_SIZE,
+    idle_inactive: Boolean(overallState.idle_inactive),
   };
 }
 
@@ -190,6 +204,7 @@ function evaluateThirtySecondBatch() {
     evaluations_completed: Number(overallState.evaluations_completed || 0) + 1,
     batch_average: roundScore(batchAverage),
     updated_at: new Date().toISOString(),
+    idle_inactive: false,
   };
 
   evaluationBatch = evaluationBatch.slice(EVALUATION_WINDOW_SIZE);
@@ -302,6 +317,13 @@ app.post("/api/telemetry", async (req, res) => {
     return;
   }
 
+  if (isIdleTelemetry(telemetry)) {
+    consecutiveIdleWindows += 1;
+  } else {
+    consecutiveIdleWindows = 0;
+    overallState.idle_inactive = false;
+  }
+
   let responsePayload;
 
   try {
@@ -324,16 +346,35 @@ app.post("/api/telemetry", async (req, res) => {
     responsePayload.error = error.message;
   }
 
-  const overall = addWindowAndMaybeEvaluate(responsePayload);
-  const hasOverallPrediction = Boolean(overall.has_prediction);
+  let mergedOverall = addWindowAndMaybeEvaluate(responsePayload);
+
+  if (isIdleTelemetry(telemetry) && consecutiveIdleWindows >= IDLE_MINUTE_WINDOWS) {
+    overallState = {
+      ...overallState,
+      has_prediction: true,
+      status: "idle_inactive",
+      fatigue_score: 10,
+      score: 1,
+      risk: "HIGH",
+      risk_index: 2,
+      trend_delta: 0,
+      windows_collected: evaluationBatch.length,
+      windows_required: EVALUATION_WINDOW_SIZE,
+      updated_at: new Date().toISOString(),
+      idle_inactive: true,
+    };
+    mergedOverall = getOverallCollectionState("idle_inactive");
+  }
+
+  const hasOverallPrediction = Boolean(mergedOverall.has_prediction);
 
   responsePayload = {
     ...responsePayload,
-    risk: hasOverallPrediction ? overall.risk : "WAITING",
-    score: hasOverallPrediction ? overall.score : null,
-    fatigue_score: hasOverallPrediction ? overall.fatigue_score : null,
-    risk_index: hasOverallPrediction ? overall.risk_index : null,
-    overall,
+    risk: hasOverallPrediction ? mergedOverall.risk : "WAITING",
+    score: hasOverallPrediction ? mergedOverall.score : null,
+    fatigue_score: hasOverallPrediction ? mergedOverall.fatigue_score : null,
+    risk_index: hasOverallPrediction ? mergedOverall.risk_index : null,
+    overall: mergedOverall,
   };
 
   logs.push(responsePayload);
@@ -346,7 +387,7 @@ app.get("/api/telemetry", (_req, res) => {
   res.json({
     success: true,
     count: logs.length,
-    overall: getOverallCollectionState(overallState.status),
+    overall: getOverallCollectionState(),
     data: logs,
   });
 });

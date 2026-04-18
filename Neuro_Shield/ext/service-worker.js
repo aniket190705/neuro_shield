@@ -51,11 +51,58 @@ const postTelemetry = async (payload) => {
   return { ok: false, error: lastError || "All loopback endpoints failed" };
 };
 
+/** Plain zeros so the server can count 60s idle even when the tab is in the background. */
+const postIdleHeartbeat = async () => {
+  const body = JSON.stringify({
+    keys: 0,
+    mouse_distance: 0,
+    tab_switches: 0,
+    backspace: 0,
+  });
+  let lastError = null;
+
+  for (const endpoint of TELEMETRY_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body,
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} from ${endpoint}`);
+      }
+
+      await response.json().catch(() => null);
+      return { ok: true, endpoint };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  return { ok: false, error: lastError || "All loopback endpoints failed" };
+};
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "TAB_SWITCH_EVENT") {
     markTabSwitch();
     sendResponse({ ok: true });
     return false;
+  }
+
+  if (message?.type === "IDLE_HEARTBEAT") {
+    postIdleHeartbeat()
+      .then(sendResponse)
+      .catch((error) => {
+        sendResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    return true;
   }
 
   if (message?.type !== "SEND_TELEMETRY") {
